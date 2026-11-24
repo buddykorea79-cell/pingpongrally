@@ -14,8 +14,8 @@ const FEATURES = [
   { name: '퀵폴', tone: 'bg-poll-500', text: '즉석 투표예요. 결과가 막대그래프로 바로 보여요.' },
 ]
 
-const GUEST_STEPS = ['화면의 QR을 찍거나 입장 코드 숫자 6자리를 넣어요', '닉네임을 정하고 들어가요', '핑에 퐁을 보내고, 리플과 투표로 함께해요']
-const HOST_STEPS = ['Google 계정으로 로그인해요(처음이면 자동 가입)', '강의를 만들고 던질 핑을 준비해요', '[강의 시작]을 누르고 입장 코드·QR을 화면에 띄워요']
+const HOST_STEPS = ['Google 계정으로 로그인해요(처음이면 자동 가입)', '강의를 만들고 [강의 시작]을 누르면 입장 코드·QR이 생겨요']
+const GUEST_STEPS = ['화면의 QR을 찍거나 입장 코드 숫자 6자리를 넣어요', '닉네임을 정하고 핑에 퐁을 보내요']
 
 /** 오른쪽 상자 안의 번호 목록 */
 function Steps({ items }: { items: string[] }) {
@@ -87,8 +87,19 @@ export default function Home() {
           </p>
         </section>
 
-        {/* 오른쪽: 참여자 / 강사 상자. 휴대폰에서는 이쪽이 먼저 보인다 */}
+        {/* 오른쪽: 강사(위) / 참여자(아래) 상자. 휴대폰에서는 이쪽이 먼저 보인다 */}
         <section className="order-first animate-fade-up space-y-4 lg:order-none">
+          <div className={BOX}>
+            <div className="flex items-baseline justify-between gap-3">
+              <h2 className="text-[22px] font-light tracking-[-0.02em] text-fg">강사</h2>
+              <span className="text-[13px] text-fg-3">Google 로그인</span>
+            </div>
+            <Steps items={HOST_STEPS} />
+            <ButtonLink to="/host" variant="secondary" size="xl" block className="mt-6" iconRight={<ArrowRight className="size-4 stroke-[1.6]" />}>
+              시작하기
+            </ButtonLink>
+          </div>
+
           <div className={BOX}>
             <div className="flex items-baseline justify-between gap-3">
               <h2 className="text-[22px] font-light tracking-[-0.02em] text-fg">참여자</h2>
@@ -119,17 +130,6 @@ export default function Home() {
                 <ArrowRight className="size-3.5 stroke-[1.6]" />
               </button>
             )}
-          </div>
-
-          <div className={BOX}>
-            <div className="flex items-baseline justify-between gap-3">
-              <h2 className="text-[22px] font-light tracking-[-0.02em] text-fg">강사</h2>
-              <span className="text-[13px] text-fg-3">Google 로그인</span>
-            </div>
-            <Steps items={HOST_STEPS} />
-            <ButtonLink to="/host" variant="secondary" size="xl" block className="mt-6" iconRight={<ArrowRight className="size-4 stroke-[1.6]" />}>
-              시작하기
-            </ButtonLink>
           </div>
         </section>
       </main>
