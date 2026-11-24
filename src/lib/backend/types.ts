@@ -112,8 +112,10 @@ export interface Backend {
   pollResults(nodeId: string): Promise<PollResults>
 
   // ---------- 퐁 반응 ----------
-  /** 이모지 하나를 켜거나 끈다. 개수는 nodes.meta.reactions 로도 실시간 반영된다. */
+  /** 이모지 하나를 켜거나 끈다. 실시간 메시지는 생기지 않고, 다른 화면은 reactionCounts 로 따라온다. */
   toggleReaction(nodeId: string, kind: ReactionKind): Promise<{ mine: ReactionKind[]; reactions: ReactionCounts }>
+  /** 강의의 퐁별 반응 개수. since 를 주면 그 뒤에 바뀐 것만. at 은 서버 시각 */
+  reactionCounts(roomId: string, since?: string | null): Promise<{ at: string; counts: Record<string, ReactionCounts> }>
   /** 이 강의에서 내가 고른 반응 { nodeId: [kind] } */
   myReactions(roomId: string): Promise<Record<string, ReactionKind[]>>
 

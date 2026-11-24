@@ -211,7 +211,11 @@ export default function Rally() {
   )
 
   // ---------- 퐁 반응 ----------
-  const reactions = useReactions(roomId, state.status === 'ready' && (!!me || isHost), state.patchNodeMeta, (m) => toast.show(m, 'danger'))
+  const reactions = useReactions(roomId, {
+    enabled: state.status === 'ready' && (!!me || isHost),
+    live: roomPhase(room, now) === 'live',
+    onError: (m) => toast.show(m, 'danger'),
+  })
 
   // ---------- 휴대폰: 고른 핑 칩이 보이도록 가로 스크롤 ----------
   const chipRefs = useRef(new Map<string, HTMLButtonElement>())
@@ -516,6 +520,7 @@ export default function Rally() {
                           onDelete={remove}
                           fresh={!!initialIds.current && !initialIds.current.has(p.id)}
                           now={now}
+                          reactions={reactions.counts[p.id]}
                           myReactions={reactions.mine[p.id]}
                           onReact={canWrite ? reactions.toggle : undefined}
                         />

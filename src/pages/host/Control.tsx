@@ -21,7 +21,7 @@ import {
   Square,
 } from 'lucide-react'
 import { backend } from '@/lib/backend'
-import type { RallyNode, ReactionKind, Room, RoomSurvey } from '@/lib/types'
+import type { RallyNode, ReactionCounts, ReactionKind, Room, RoomSurvey } from '@/lib/types'
 import { addToMyTemplates, templateFromNode } from '@/lib/templates'
 import { useReactions } from '@/lib/reactions'
 import { clipboardFiles } from '@/components/rally/Composer'
@@ -68,7 +68,7 @@ export default function Control() {
 
   const setRoom = state.setRoom
   const phase = roomPhase(room, now)
-  const reactions = useReactions(id, state.status === 'ready', state.patchNodeMeta, (m) => toast.show(m, 'danger'))
+  const reactions = useReactions(id, { enabled: state.status === 'ready', live: phase === 'live', onError: (m) => toast.show(m, 'danger') })
 
   // 키보드: ↑/↓ 핑 이동, F 포커스
   useEffect(() => {
@@ -339,6 +339,7 @@ export default function Control() {
                 onFocus={() => focus(selected)}
                 onEdit={() => setEditor({ open: true, node: selected, type: selected.type === 'poll' ? 'poll' : 'ping' })}
                 onSaveTemplate={() => void saveTemplate(selected)}
+                reactionCounts={reactions.counts}
                 myReactions={reactions.mine}
                 onReact={reactions.toggle}
                 onMove={(d) => void move(selected, d)}
@@ -400,6 +401,7 @@ function PingDetail({
   onPatch,
   upsert,
   onToggleHidden,
+  reactionCounts,
   myReactions,
   onReact,
 }: {
@@ -422,6 +424,7 @@ function PingDetail({
   onPatch: (patch: Parameters<typeof backend.updateNode>[1], msg?: string) => Promise<void>
   upsert: (n: RallyNode) => void
   onToggleHidden: (n: RallyNode) => void
+  reactionCounts: Record<string, ReactionCounts>
   myReactions: Record<string, ReactionKind[]>
   onReact: (pong: RallyNode, kind: ReactionKind) => void
 }) {
@@ -587,6 +590,7 @@ function PingDetail({
                   }}
                   onDelete={(n) => onToggleHidden(n)}
                   onToggleHidden={onToggleHidden}
+                  reactions={reactionCounts[p.id]}
                   myReactions={myReactions[p.id]}
                   onReact={canWrite ? onReact : undefined}
                 />

@@ -333,7 +333,24 @@ await ok('s2·강사 좋아요, s2 웃겨요 → like 3 · laugh 1', async () =>
   if (r.reactions.like !== 3 || r.reactions.laugh !== 1 || r.mine.length !== 2) throw new Error(JSON.stringify(r))
   return r
 })
-await ok('다른 교육생 화면에도 개수가 보임(nodes.meta.reactions)', async () => one(await as('s1', `select meta -> 'reactions' r from nodes where id = $1`, [pong2.id])).r)
+await ok('반응해도 퐁(nodes)은 그대로 → 실시간 메시지 없음', async () => {
+  const n = one(await as('s1', `select meta, updated_at from nodes where id = $1`, [pong2.id]))
+  if (Object.keys(n.meta).length || n.updated_at.getTime() !== new Date(pong2.updated_at).getTime()) throw new Error(JSON.stringify(n))
+  return n.meta
+})
+await ok('다른 교육생은 reaction_counts 로 개수를 받음', async () => {
+  const r = one(await as('s1', `select reaction_counts($1) r`, [room.id])).r
+  if (r.counts[pong2.id]?.like !== 3 || !r.at) throw new Error(JSON.stringify(r))
+  return r.counts[pong2.id]
+})
+await ok('since 이후 바뀐 것만 돌려줌', async () => {
+  const at = one(await as('s1', `select reaction_counts($1) r`, [room.id])).r.at
+  const none = one(await as('s1', `select reaction_counts($1, $2) r`, [room.id, at])).r.counts
+  if (Object.keys(none).length) throw new Error(JSON.stringify(none))
+  return none
+})
+await rejects('입장 안 한 사람은 개수 조회 불가', () => as('other', `select reaction_counts($1)`, [room.id]), 'not_member')
+await ok('개수 표는 직접 못 읽음', async () => (await as('s1', `select * from node_reaction_counts`)).rows.length)
 await ok('한 번 더 누르면 취소 → like 2', async () => {
   const r = one(await as('s1', `select toggle_reaction($1, 'like') r`, [pong2.id])).r
   if (r.reactions.like !== 2 || r.mine.length !== 0) throw new Error(JSON.stringify(r))

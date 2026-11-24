@@ -268,6 +268,9 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
     async toggleReaction(nodeId, kind) {
       return check(await sb.rpc('toggle_reaction', { p_node: nodeId, p_kind: kind })) as { mine: ReactionKind[]; reactions: ReactionCounts }
     },
+    async reactionCounts(roomId, since) {
+      return check(await sb.rpc('reaction_counts', { p_room: roomId, p_since: since ?? null })) as { at: string; counts: Record<string, ReactionCounts> }
+    },
     async myReactions(roomId) {
       return (check(await sb.rpc('my_reactions', { p_room: roomId })) ?? {}) as Record<string, ReactionKind[]>
     },

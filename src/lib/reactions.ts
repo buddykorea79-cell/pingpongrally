@@ -13,10 +13,8 @@ export const REACTIONS: { kind: ReactionKind; emoji: string; label: string }[] =
   { kind: 'think', emoji: '🤔', label: '생각해 볼게요' },
 ]
 
-export const REACTION_EMOJI = Object.fromEntries(REACTIONS.map((r) => [r.kind, r.emoji])) as Record<ReactionKind, string>
-
-export function reactionCounts(n: Pick<RallyNode, 'meta'>): ReactionCounts {
-  const raw = n.meta.reactions
+/** 서버에서 받은 값을 아는 이모지·양수만 남겨 정리한다 */
+export function normalizeCounts(raw: unknown): ReactionCounts {
   if (!raw || typeof raw !== 'object') return {}
   const out: ReactionCounts = {}
   for (const r of REACTIONS) {
@@ -26,65 +24,101 @@ export function reactionCounts(n: Pick<RallyNode, 'meta'>): ReactionCounts {
   return out
 }
 
-export function reactionTotal(n: Pick<RallyNode, 'meta'>) {
-  return Object.values(reactionCounts(n)).reduce((a, b) => a + (b ?? 0), 0)
-}
+/** 반응 개수는 실시간 채널 대신 몇 초마다 '바뀐 것만' 가져온다(무료 플랜 실시간 메시지 한도 절약). */
+const POLL_MS = 5000
+/** 겹쳐서 다시 가져올 구간: 늦게 커밋된 변경도 놓치지 않게 */
+const OVERLAP_MS = 3000
+/** 내가 누른 직후에는 폴링 결과로 덮지 않는다(깜빡임 방지) */
+const LOCAL_HOLD_MS = 4000
 
 /**
- * 이 강의에서 내가 고른 반응과 켜고 끄기.
- * 누르는 즉시 화면에 반영하고(낙관적), 서버 응답과 실시간 이벤트로 바로잡는다.
+ * 이 강의의 퐁 반응 개수와 내가 고른 반응, 켜고 끄기.
+ * - 개수: reaction_counts(room, since) 를 5초(+흩뿌림)마다. 화면이 숨겨져 있으면 쉬고, 돌아오면 바로 가져온다.
+ * - 내 반응: 누르는 즉시 화면에 반영(낙관적)하고 서버 응답으로 바로잡는다.
  */
 export function useReactions(
   roomId: string | undefined,
-  enabled: boolean,
-  patchMeta: (nodeId: string, patch: Record<string, unknown>) => void,
-  onError?: (message: string) => void,
+  opts: { enabled: boolean; live: boolean; withMine?: boolean; onError?: (message: string) => void },
 ) {
+  const { enabled, live, withMine = true } = opts
+  const [counts, setCounts] = useState<Record<string, ReactionCounts>>({})
   const [mine, setMine] = useState<Record<string, ReactionKind[]>>({})
   const pending = useRef(new Set<string>())
+  const localAt = useRef(new Map<string, number>())
   // toggle 의 정체성을 고정해 퐁 카드(memo)가 반응 하나에 모두 다시 그려지지 않게 한다
+  const countsRef = useRef(counts)
+  countsRef.current = counts
   const mineRef = useRef(mine)
   mineRef.current = mine
-  const errRef = useRef(onError)
-  errRef.current = onError
+  const errRef = useRef(opts.onError)
+  errRef.current = opts.onError
 
   useEffect(() => {
     if (!roomId || !enabled) return
     let alive = true
-    backend
-      .myReactions(roomId)
-      .then((m) => alive && setMine(m))
-      .catch(() => {})
+    let since: string | null = null
+    const pull = async () => {
+      if (since && document.visibilityState !== 'visible') return
+      try {
+        const r = await backend.reactionCounts(roomId, since)
+        if (!alive) return
+        since = new Date(new Date(r.at).getTime() - OVERLAP_MS).toISOString()
+        const entries = Object.entries(r.counts)
+        if (!entries.length) return
+        const now = Date.now()
+        setCounts((prev) => {
+          const next = { ...prev }
+          for (const [id, c] of entries) {
+            if (now - (localAt.current.get(id) ?? 0) < LOCAL_HOLD_MS) continue
+            next[id] = normalizeCounts(c)
+          }
+          return next
+        })
+      } catch {
+        /* 다음 주기에 다시 */
+      }
+    }
+    void pull()
+    if (withMine) {
+      backend
+        .myReactions(roomId)
+        .then((m) => alive && setMine(m))
+        .catch(() => {})
+    }
+    const timer = live ? window.setInterval(() => void pull(), POLL_MS + Math.floor(Math.random() * 1500)) : undefined
+    const onVis = () => document.visibilityState === 'visible' && void pull()
+    document.addEventListener('visibilitychange', onVis)
     return () => {
       alive = false
+      if (timer) clearInterval(timer)
+      document.removeEventListener('visibilitychange', onVis)
     }
-  }, [roomId, enabled])
+  }, [roomId, enabled, live, withMine])
 
-  const toggle = useCallback(
-    async (node: RallyNode, kind: ReactionKind) => {
-      const key = `${node.id}:${kind}`
-      if (pending.current.has(key)) return
-      pending.current.add(key)
-      const before = mineRef.current[node.id] ?? []
-      const had = before.includes(kind)
-      const counts = reactionCounts(node)
-      const nextCounts: ReactionCounts = { ...counts, [kind]: Math.max(0, (counts[kind] ?? 0) + (had ? -1 : 1)) }
-      setMine((m) => ({ ...m, [node.id]: had ? before.filter((k) => k !== kind) : [...before, kind] }))
-      patchMeta(node.id, { reactions: nextCounts })
-      try {
-        const r = await backend.toggleReaction(node.id, kind)
-        setMine((m) => ({ ...m, [node.id]: r.mine }))
-        patchMeta(node.id, { reactions: r.reactions })
-      } catch (e) {
-        setMine((m) => ({ ...m, [node.id]: before }))
-        patchMeta(node.id, { reactions: counts })
-        errRef.current?.(errorMessage(e))
-      } finally {
-        pending.current.delete(key)
-      }
-    },
-    [patchMeta],
-  )
+  const toggle = useCallback(async (node: RallyNode, kind: ReactionKind) => {
+    const key = `${node.id}:${kind}`
+    if (pending.current.has(key)) return
+    pending.current.add(key)
+    const before = mineRef.current[node.id] ?? []
+    const had = before.includes(kind)
+    const prevCounts = countsRef.current[node.id] ?? {}
+    const nextCounts: ReactionCounts = { ...prevCounts, [kind]: Math.max(0, (prevCounts[kind] ?? 0) + (had ? -1 : 1)) }
+    localAt.current.set(node.id, Date.now())
+    setMine((m) => ({ ...m, [node.id]: had ? before.filter((k) => k !== kind) : [...before, kind] }))
+    setCounts((c) => ({ ...c, [node.id]: normalizeCounts(nextCounts) }))
+    try {
+      const r = await backend.toggleReaction(node.id, kind)
+      localAt.current.set(node.id, Date.now())
+      setMine((m) => ({ ...m, [node.id]: r.mine }))
+      setCounts((c) => ({ ...c, [node.id]: normalizeCounts(r.reactions) }))
+    } catch (e) {
+      setMine((m) => ({ ...m, [node.id]: before }))
+      setCounts((c) => ({ ...c, [node.id]: prevCounts }))
+      errRef.current?.(errorMessage(e))
+    } finally {
+      pending.current.delete(key)
+    }
+  }, [])
 
-  return { mine, toggle }
+  return { counts, mine, toggle }
 }

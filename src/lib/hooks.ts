@@ -117,8 +117,6 @@ export interface RoomState {
   refresh: () => Promise<void>
   resync: () => Promise<void>
   upsertNode: (n: RallyNode) => void
-  /** updated_at 은 그대로 두고 meta 일부만 바꾼다(반응 개수의 낙관적 반영용) */
-  patchNodeMeta: (id: string, patch: Record<string, unknown>) => void
   removeNode: (id: string) => void
   setRoom: (r: Room) => void
 }
@@ -151,16 +149,6 @@ export function useRoomState(roomId: string | undefined, opts: { members?: boole
         const cur = next.get(n.id)
         if (!cur || cur.updated_at <= n.updated_at) next.set(n.id, n)
       }
-      return next
-    })
-  }, [])
-
-  const patchNodeMeta = useCallback((id: string, patch: Record<string, unknown>) => {
-    setNodeMap((prev) => {
-      const cur = prev.get(id)
-      if (!cur) return prev
-      const next = new Map(prev)
-      next.set(id, { ...cur, meta: { ...cur.meta, ...patch } })
       return next
     })
   }, [])
@@ -286,7 +274,6 @@ export function useRoomState(roomId: string | undefined, opts: { members?: boole
     refresh,
     resync,
     upsertNode: (n) => mergeNodes([n]),
-    patchNodeMeta,
     removeNode: (id) =>
       setNodeMap((prev) => {
         const next = new Map(prev)

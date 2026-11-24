@@ -144,8 +144,10 @@ create table public.poll_votes (
 );
 create index poll_votes_user_idx on public.poll_votes (user_id);
 
--- 퐁 이모지 반응: 사람마다 퐁 하나에 한 행(고른 이모지 목록). 개수는 toggle_reaction 이
--- nodes.meta.reactions 에 모아 두어, 기존 nodes 실시간 채널로 모두에게 퍼진다.
+-- 퐁 이모지 반응: 사람마다 퐁 하나에 한 행(고른 이모지 목록).
+-- 개수는 node_reaction_counts 에 따로 모으고 실시간 채널에는 넣지 않는다.
+-- 반응 하나가 접속자 전원에게 실시간 메시지로 퍼지면 무료 한도(초당 100개)를 금방 넘기 때문에,
+-- 화면은 reaction_counts(room, since) 로 바뀐 개수만 몇 초마다 가져간다.
 create table public.node_reactions (
   node_id    uuid not null references public.nodes(id) on delete cascade,
   user_id    uuid not null default auth.uid(),
@@ -154,6 +156,14 @@ create table public.node_reactions (
   primary key (node_id, user_id)
 );
 create index node_reactions_user_idx on public.node_reactions (user_id);
+
+create table public.node_reaction_counts (
+  node_id    uuid primary key references public.nodes(id) on delete cascade,
+  room_id    uuid not null references public.rooms(id) on delete cascade,
+  counts     jsonb not null default '{}'::jsonb check (jsonb_typeof(counts) = 'object'),
+  updated_at timestamptz not null default now()
+);
+create index node_reaction_counts_room_idx on public.node_reaction_counts (room_id, updated_at);
 
 create table public.survey_templates (
   id          uuid primary key default gen_random_uuid(),
@@ -449,12 +459,9 @@ begin
 
   if not v_is_host then
     -- 작성자는 내용·첨부 수정과 '삭제(숨김)'만 할 수 있다.
-    if new.is_closed <> old.is_closed or new.sort_order <> old.sort_order
+    if new.is_closed <> old.is_closed or new.meta <> old.meta or new.sort_order <> old.sort_order
        or new.opened_at is distinct from old.opened_at or new.is_host <> old.is_host
-       or new.author_nickname <> old.author_nickname
-       or (new.meta <> old.meta and not (
-             coalesce(current_setting('ppr.reaction', true), '') = 'on'
-             and (new.meta - 'reactions') = (old.meta - 'reactions'))) then
+       or new.author_nickname <> old.author_nickname then
       raise exception 'not_allowed' using errcode = '42501';
     end if;
     if old.is_hidden and not new.is_hidden then
@@ -541,6 +548,7 @@ alter table public.rosters          enable row level security;
 alter table public.nodes            enable row level security;
 alter table public.poll_votes       enable row level security;
 alter table public.node_reactions   enable row level security;
+alter table public.node_reaction_counts enable row level security;
 alter table public.code_attempts    enable row level security;
 alter table public.room_surveys     enable row level security;
 alter table public.survey_responses enable row level security;
@@ -918,6 +926,7 @@ end $$;
 
 -- 퀵폴 집계: 누가 어디에 투표했는지는 돌려주지 않는다.
 -- 퐁 반응 켜고 끄기. 돌려주는 값: { "mine": 내가 고른 것, "reactions": { like: 3, ... } }
+-- nodes 를 고치지 않으므로 실시간 메시지가 생기지 않는다. 다른 사람 화면은 reaction_counts 로 따라온다.
 create or replace function public.toggle_reaction(p_node uuid, p_kind text)
 returns jsonb language plpgsql security definer set search_path = '' as $$
 declare
@@ -930,8 +939,7 @@ begin
   if p_kind is null or not (p_kind = any (array['like', 'dislike', 'heart', 'laugh', 'wow', 'think']::text[])) then
     raise exception 'invalid_reaction' using errcode = '22023';
   end if;
-  -- 같은 퐁에 동시에 반응해도 개수가 어긋나지 않게 퐁 행을 잠근다
-  select * into n from public.nodes where id = p_node for update;
+  select * into n from public.nodes where id = p_node;
   if n.id is null or n.type <> 'pong' or n.is_hidden then
     raise exception 'reaction_target_not_found' using errcode = 'P0002';
   end if;
@@ -941,6 +949,10 @@ begin
   if not public.room_is_open(n.room_id) then
     raise exception 'room_closed' using errcode = '42501';
   end if;
+
+  -- 같은 퐁에 동시에 눌러도 개수가 어긋나지 않게 개수 행을 잠근다
+  insert into public.node_reaction_counts (node_id, room_id) values (p_node, n.room_id) on conflict (node_id) do nothing;
+  perform 1 from public.node_reaction_counts where node_id = p_node for update;
 
   insert into public.node_reactions as r (node_id, user_id, kinds)
   values (p_node, v_uid, array[p_kind])
@@ -952,11 +964,27 @@ begin
   select coalesce(jsonb_object_agg(k, c), '{}'::jsonb) into v_counts
     from (select unnest(kinds) as k, count(*) as c from public.node_reactions where node_id = p_node group by 1) t;
 
-  perform set_config('ppr.reaction', 'on', true);
-  update public.nodes set meta = jsonb_set(meta, '{reactions}', v_counts) where id = p_node;
-  perform set_config('ppr.reaction', '', true);
+  update public.node_reaction_counts set counts = v_counts, updated_at = clock_timestamp() where node_id = p_node;
 
   return jsonb_build_object('mine', to_jsonb(v_kinds), 'reactions', v_counts);
+end $$;
+
+-- 강의의 반응 개수. p_since 를 주면 그 뒤에 바뀐 것만(화면이 몇 초마다 가져간다).
+-- 돌려주는 값: { "at": 서버 시각, "counts": { node_id: { like: 3 } } }
+create or replace function public.reaction_counts(p_room uuid, p_since timestamptz default null)
+returns jsonb language plpgsql stable security definer set search_path = '' as $$
+begin
+  if not (public.is_room_member(p_room) or public.is_room_host(p_room)) then
+    raise exception 'not_member' using errcode = '42501';
+  end if;
+  return jsonb_build_object(
+    'at', now(),
+    'counts', coalesce((
+      select jsonb_object_agg(c.node_id, c.counts)
+      from public.node_reaction_counts c
+      where c.room_id = p_room and (p_since is null or c.updated_at > p_since)
+    ), '{}'::jsonb)
+  );
 end $$;
 
 -- 이 강의에서 내가 고른 반응 { node_id: [kind, ...] }
@@ -1093,7 +1121,8 @@ grant execute on function
   public.registration_lookup(text), public.register_by_token(text, jsonb),
   public.poll_results(uuid), public.survey_results(uuid), public.purge_pii_now(uuid),
   public.my_rooms(), public.apply_ping_set(uuid, jsonb),
-  public.toggle_reaction(uuid, text), public.my_reactions(uuid), public.normalize_room_code(text)
+  public.toggle_reaction(uuid, text), public.my_reactions(uuid), public.reaction_counts(uuid, timestamptz),
+  public.normalize_room_code(text)
   to authenticated;
 revoke execute on function public.close_expired_rooms(), public.stale_anonymous_users(int) from authenticated;
 grant execute on function public.close_expired_rooms(), public.stale_anonymous_users(int) to service_role;

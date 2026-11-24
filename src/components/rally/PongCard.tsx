@@ -1,7 +1,7 @@
 import { memo, useEffect, useRef, useState } from 'react'
 import { CornerDownRight, Eye, EyeOff, MessageCircle, MoreHorizontal, Pencil, SmilePlus, Trash2 } from 'lucide-react'
-import type { RallyNode, ReactionKind } from '@/lib/types'
-import { REACTIONS, reactionCounts } from '@/lib/reactions'
+import type { RallyNode, ReactionCounts, ReactionKind } from '@/lib/types'
+import { REACTIONS } from '@/lib/reactions'
 import { cn, timeAgo } from '@/lib/utils'
 import { Avatar, Badge } from '../ui/Display'
 import { Menu, type MenuItem } from '../ui/Overlay'
@@ -26,6 +26,8 @@ export interface PongCardProps {
   onToggleHidden?: (node: RallyNode) => void
   fresh?: boolean
   now: number
+  /** 이 퐁의 반응 개수 */
+  reactions?: ReactionCounts
   /** 내가 이 퐁에 남긴 반응 */
   myReactions?: ReactionKind[]
   /** 없으면 반응 개수만 보여 주고 누를 수 없다 */
@@ -46,6 +48,7 @@ export const PongCard = memo(function PongCard({
   onToggleHidden,
   fresh,
   now,
+  reactions,
   myReactions,
   onReact,
 }: PongCardProps) {
@@ -87,7 +90,7 @@ export const PongCard = memo(function PongCard({
         {pong.attachments.length > 0 && <AttachmentList items={pong.attachments} className="mt-3" />}
 
         <div className="mt-3 flex flex-wrap items-center gap-1" onClick={(e) => e.stopPropagation()}>
-          <Reactions pong={pong} mine={myReactions ?? []} onReact={pong.is_hidden ? undefined : onReact} />
+          <Reactions pong={pong} counts={reactions ?? NO_COUNTS} mine={myReactions ?? NO_KINDS} onReact={pong.is_hidden ? undefined : onReact} />
           <button
             type="button"
             onClick={() => (replies.length > 0 ? setOpen((v) => !v) : startReply())}
@@ -303,10 +306,12 @@ function EditBox({ initial, onSave, onCancel }: { initial: string; onSave: (t: s
  * 퐁 이모지 반응: 누군가 남긴 이모지는 칩으로 보이고, 두 명 이상이면 작은 숫자가 붙는다.
  * 내가 누른 칩은 진하게. 웃는 얼굴 버튼으로 고르기 창을 연다.
  */
-function Reactions({ pong, mine, onReact }: { pong: RallyNode; mine: ReactionKind[]; onReact?: (pong: RallyNode, kind: ReactionKind) => void }) {
+const NO_COUNTS: ReactionCounts = {}
+const NO_KINDS: ReactionKind[] = []
+
+function Reactions({ pong, counts, mine, onReact }: { pong: RallyNode; counts: ReactionCounts; mine: ReactionKind[]; onReact?: (pong: RallyNode, kind: ReactionKind) => void }) {
   const [open, setOpen] = useState(false)
   const box = useRef<HTMLDivElement>(null)
-  const counts = reactionCounts(pong)
   const shown = REACTIONS.filter((r) => (counts[r.kind] ?? 0) > 0)
 
   useEffect(() => {

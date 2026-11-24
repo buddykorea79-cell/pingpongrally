@@ -386,14 +386,12 @@ export async function reactAs(userId: string, nodeId: string, kind: ReactionKind
   const before = prev?.kinds ?? []
   const kinds = before.includes(kind) ? before.filter((k) => k !== kind) : [...before, kind]
   await idb.put<ReactionRow>('node_reactions', { id, node_id: nodeId, user_id: userId, kinds, updated_at: now() })
+  // 서버처럼 노드는 고치지 않는다(실시간 메시지 없음). 다른 화면은 reactionCounts 로 따라온다.
   const reactions: ReactionCounts = {}
   for (const r of await idb.all<ReactionRow>('node_reactions')) {
     if (r.node_id !== nodeId) continue
     for (const k of r.kinds) reactions[k] = (reactions[k] ?? 0) + 1
   }
-  const next: RallyNode = { ...node, meta: { ...node.meta, reactions }, updated_at: now() }
-  await idb.put('nodes', next)
-  emit({ room_id: next.room_id, table: 'nodes', type: 'UPDATE', record: next })
   return { mine: kinds, reactions }
 }
 
@@ -839,6 +837,22 @@ export function createDemoBackend(): Backend {
     async toggleReaction(nodeId, kind) {
       const a = await actor()
       return reactAs(a.userId, nodeId, kind)
+    },
+    async reactionCounts(roomId, since) {
+      const a = await actor()
+      if (!(await isHost(roomId, a.userId)) && !(await membership(roomId, a.userId))) throw new AppError('not_member')
+      const ids = new Set((await idb.all<RallyNode>('nodes')).filter((n) => n.room_id === roomId).map((n) => n.id))
+      const byNode = new Map<string, { counts: ReactionCounts; at: string }>()
+      for (const r of await idb.all<ReactionRow>('node_reactions')) {
+        if (!ids.has(r.node_id)) continue
+        const cur = byNode.get(r.node_id) ?? { counts: {}, at: '' }
+        for (const k of r.kinds) cur.counts[k] = (cur.counts[k] ?? 0) + 1
+        if (r.updated_at > cur.at) cur.at = r.updated_at
+        byNode.set(r.node_id, cur)
+      }
+      const counts: Record<string, ReactionCounts> = {}
+      for (const [id, v] of byNode) if (!since || v.at > since) counts[id] = v.counts
+      return { at: now(), counts }
     },
     async myReactions(roomId) {
       const a = await actor()

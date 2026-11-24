@@ -779,6 +779,13 @@ export function ExportCard({ room, nodes }: { room: Room; nodes: RallyNode[] }) 
     }
     return polls
   }
+  const loadReactions = async () => {
+    try {
+      return (await backend.reactionCounts(room.id)).counts
+    } catch {
+      return {}
+    }
+  }
   return (
     <PanelCard title="내보내기" icon={<Download />}>
       <div className="space-y-1.5">
@@ -789,7 +796,7 @@ export function ExportCard({ room, nodes }: { room: Room; nodes: RallyNode[] }) 
           onClick={async () => {
             setZipBusy('준비 중…')
             try {
-              const r = await downloadRallyZip(room, nodes, await loadPolls(), (d, t) => setZipBusy(`첨부 받는 중 ${d}/${t}`))
+              const r = await downloadRallyZip(room, nodes, await loadPolls(), (d, t) => setZipBusy(`첨부 받는 중 ${d}/${t}`), await loadReactions())
               toast.show(r.failed ? `ZIP을 만들었어요. 첨부 ${r.failed}개는 받지 못했어요.` : 'ZIP을 내려받았어요.')
             } catch (e) {
               toast.show(errorMessage(e), 'danger')
@@ -803,7 +810,7 @@ export function ExportCard({ room, nodes }: { room: Room; nodes: RallyNode[] }) 
           title="AI 분석용 정리 (.md)"
           sub="생성형 AI에 붙여 넣어 요약·군집화"
           onClick={async () => {
-            downloadText(buildAiMarkdown(room, nodes, await loadPolls()), `AI분석용_${safeFileName(room.title)}_${todayStamp()}.md`)
+            downloadText(buildAiMarkdown(room, nodes, await loadPolls(), await loadReactions()), `AI분석용_${safeFileName(room.title)}_${todayStamp()}.md`)
           }}
         />
       </div>

@@ -53,7 +53,7 @@ supabase/
   migrations/       테이블 10개 · RLS · 서버 함수 · 실시간 · 스토리지
   functions/purge/  파기 Edge Function (Storage API로 파일 삭제)
   cron.sql          pg_cron 예약 작업
-  tests/            PGlite 로 마이그레이션·RLS 91개 항목 검증
+  tests/            PGlite 로 마이그레이션·RLS 95개 항목 검증
 scripts/loadtest.mjs  가짜 교육생 60~100명 부하 테스트
 .github/workflows/keepalive.yml  3일마다 호출(일시정지 방지)
 ```
@@ -103,7 +103,7 @@ GitHub 저장소 **Settings → Secrets → Actions**에 `SUPABASE_URL`, `SUPABA
 
 ```bash
 npm run typecheck     # TypeScript
-npm run test:db       # 마이그레이션 + RLS·등록 링크·강의 개수 제한·퐁 반응·입장 코드 91개 항목 (Postgres WASM)
+npm run test:db       # 마이그레이션 + RLS·등록 링크·강의 개수 제한·퐁 반응·입장 코드 95개 항목 (Postgres WASM)
 npm run build
 SUPABASE_URL=... SUPABASE_ANON_KEY=... npm run loadtest -- --code ABC123 --clients 60
 ```
@@ -176,7 +176,7 @@ SUPABASE_URL=... SUPABASE_ANON_KEY=... npm run loadtest -- --code ABC123 --clien
 - **강사 로그인**: 관리자 발급 이메일·비밀번호 → Google 로그인 하나(가입 겸용). 위 ‘검토와 결정’ 참고
 - **강사 1명당 열린 강의 1개, 하루 3개**: 위와 같음
 - **화면 용어와 구성**: ‘강의실’ 대신 ‘강의’. 강사 화면은 [진행]·[관리]·[참석자 명단]·[설문 결과] 탭, 대시보드의 핑 세트·설문 템플릿 탭은 없애고 [관리] 탭과 [추가] 창의 [템플릿] 탭으로 옮김
-- **퐁 이모지 반응 추가**(사용자 요청): `node_reactions`(사람마다 퐁 하나에 한 행, 고른 이모지 배열)와 `toggle_reaction`·`my_reactions` 함수. 개수는 `nodes.meta.reactions`에 모아 두어 기존 nodes 실시간 채널로 퍼진다. 퐁·리플을 만들 때 meta 는 서버가 비우고, 작성자도 반응 개수를 직접 바꿀 수 없다
+- **퐁 이모지 반응 추가**(사용자 요청): `node_reactions`(사람마다 퐁 하나에 한 행, 고른 이모지 배열), 퐁별 개수 `node_reaction_counts`, `toggle_reaction`·`reaction_counts`·`my_reactions` 함수. **반응은 실시간 채널로 보내지 않는다** — 반응 하나가 접속자 전원에게 실시간 메시지로 퍼지면 무료 플랜 한도(초당 100개)를 금방 넘기 때문. 내가 누른 것은 바로 보이고, 다른 사람 반응은 화면이 5초(+흩뿌림)마다 바뀐 개수만 가져간다(화면이 숨겨져 있으면 쉬었다가 돌아오면 바로)
 - **디자인**: 가는 글꼴(Pretendard 350, 굵게는 최대 500), 1px 선, 그림자·그라데이션 없이 단순하게
 
 - **`rooms`를 참여자가 직접 읽음**: 공개 컬럼만 담긴 뷰는 Postgres Changes를 받을 수 없어서, 개인정보가 없는 `rooms` 행을 입장한 참여자도 읽게 했습니다(포커스 실시간 수신용). 상태·코드·시각 컬럼은 열 단위 권한으로 막고 서버 함수로만 바꿉니다.

@@ -3,7 +3,7 @@ import { useParams } from 'react-router'
 import { QRCodeSVG } from 'qrcode.react'
 import { AArrowDown, AArrowUp, BarChart3, Expand, Layers, MessageCircle, Network, QrCode, Shrink, Users, X } from 'lucide-react'
 import { backend } from '@/lib/backend'
-import type { RallyNode, Room, RoomMember, RoomSurvey, SurveyResultRow } from '@/lib/types'
+import type { RallyNode, ReactionCounts, Room, RoomMember, RoomSurvey, SurveyResultRow } from '@/lib/types'
 import { roomPhase, useDocumentTitle, useNow, useRoomState } from '@/lib/hooks'
 import { indexRally, pingLabel, rallyCount, type RallyIndex } from '@/lib/rally'
 import { cn, formatRemaining, timeAgo } from '@/lib/utils'
@@ -11,7 +11,7 @@ import { LogoMark } from '@/components/ui/Display'
 import { BallLoader } from '@/components/ui/Feedback'
 import { RichText } from '@/components/rally/RichText'
 import { PollBars, pollMeta, usePollResults } from '@/components/rally/Poll'
-import { REACTIONS, reactionCounts } from '@/lib/reactions'
+import { REACTIONS, useReactions } from '@/lib/reactions'
 import { QuestionSummary } from '@/components/survey/QuestionSummary'
 import { joinUrl } from '@/components/host/RoomPanel'
 
@@ -22,6 +22,8 @@ export default function Present() {
   const state = useRoomState(roomId)
   const { room, nodes, members, surveys } = state
   const now = useNow(20_000)
+  // 발표 화면은 반응을 누르지 않고 개수만 보여 준다
+  const reactions = useReactions(roomId, { enabled: state.status === 'ready', live: roomPhase(room, now) === 'live', withMine: false })
   const [scale, setScale] = useState(() => Number(localStorage.getItem('ppr-present-scale')) || 1)
   const [chrome, setChrome] = useState(true)
   const [full, setFull] = useState(false)
@@ -128,7 +130,7 @@ export default function Present() {
               <Waiting title="강의가 끝났어요" sub={`핑 ${idx.pings.length}개 · 퐁 ${nodes.filter((n) => n.type === 'pong').length}개가 오갔어요. 함께해 주셔서 감사합니다.`} />
             )
           ) : (
-            <Board ping={active} idx={idx} members={members} now={now} />
+            <Board ping={active} idx={idx} members={members} now={now} reactionCounts={reactions.counts} />
           )}
         </section>
         {showQr && <QrRail room={room} onExpand={() => setBigQr(true)} pongs={nodes.filter((n) => n.type !== 'ping' && n.type !== 'poll').length} members={members.length} />}
@@ -267,7 +269,19 @@ function Waiting({ title, sub }: { title: string; sub: string }) {
 // ---------------------------------------------------------------------------
 // 보드 뷰
 // ---------------------------------------------------------------------------
-function Board({ ping, idx, members, now }: { ping: RallyNode; idx: RallyIndex; members: RoomMember[]; now: number }) {
+function Board({
+  ping,
+  idx,
+  members,
+  now,
+  reactionCounts,
+}: {
+  ping: RallyNode
+  idx: RallyIndex
+  members: RoomMember[]
+  now: number
+  reactionCounts: Record<string, ReactionCounts>
+}) {
   const poll = ping.type === 'poll'
   const counts = rallyCount(idx, ping.id)
   const colors = useMemo(() => new Map(members.map((m) => [m.user_id, m.color])), [members])
@@ -327,7 +341,7 @@ function Board({ ping, idx, members, now }: { ping: RallyNode; idx: RallyIndex; 
                   </div>
                   {p.content && <RichText text={p.content} className="mt-3 text-[calc(22px*var(--ps))] font-medium leading-[1.55] text-white" mentionClass="text-reply-300" />}
                   {pimg && <img src={pimg.thumb_url || pimg.url} alt="" loading="lazy" className="mt-4 max-h-64 w-full rounded-2xl object-cover" />}
-                  <ReactionSummary node={p} />
+                  <ReactionSummary counts={reactionCounts[p.id]} />
                   {p.attachments.filter((a) => a.kind !== 'image').length > 0 && (
                     <p className="mt-3 text-[calc(15px*var(--ps))] font-semibold text-white/50">📎 첨부 {p.attachments.filter((a) => a.kind !== 'image').length}개</p>
                   )}
@@ -433,8 +447,7 @@ function SurveyOverlay({ survey, questionId, onClose }: { survey: RoomSurvey; qu
 }
 
 /** 발표 화면 보드: 퐁에 모인 이모지를 작게 */
-function ReactionSummary({ node }: { node: RallyNode }) {
-  const counts = reactionCounts(node)
+function ReactionSummary({ counts = {} }: { counts?: ReactionCounts }) {
   const shown = REACTIONS.filter((r) => (counts[r.kind] ?? 0) > 0)
   if (!shown.length) return null
   return (

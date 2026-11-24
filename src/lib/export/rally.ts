@@ -1,7 +1,7 @@
 // 설계서 8.1 내보내기: 랠리 묶음(ZIP) · AI 분석용 정리(.md)
 // 모든 파일은 브라우저에서 만든다(서버 비용 없음).
 import type { Attachment, PingSetItem, PollResults, RallyNode, Room, ReactionCounts } from '../types'
-import { REACTIONS, reactionCounts } from '../reactions'
+import { REACTIONS, normalizeCounts } from '../reactions'
 import { indexRally, type RallyIndex } from '../rally'
 import { downloadBlob, formatDateTime, safeFileName, todayStamp } from '../utils'
 
@@ -49,7 +49,13 @@ function mapAttachments(node: RallyNode, withPaths: boolean): ExportAttachment[]
   )
 }
 
-export function buildRallyExport(room: Room, nodes: RallyNode[], polls: Record<string, PollResults>, withPaths = true): RallyExport {
+export function buildRallyExport(
+  room: Room,
+  nodes: RallyNode[],
+  polls: Record<string, PollResults>,
+  withPaths = true,
+  reactions: Record<string, ReactionCounts> = {},
+): RallyExport {
   const idx = indexRally(nodes)
   const tz = (d: Date) => {
     const off = -d.getTimezoneOffset()
@@ -83,7 +89,7 @@ export function buildRallyExport(room: Room, nodes: RallyNode[], polls: Record<s
         content: g.content,
         created_at: g.created_at,
         attachments: mapAttachments(g, withPaths),
-        reactions: reactionCounts(g),
+        reactions: normalizeCounts(reactions[g.id]),
         replies: (idx.repliesByPong.get(g.id) ?? []).map((r) => ({ id: r.id, author: r.author_nickname, is_host: r.is_host, content: r.content, created_at: r.created_at })),
       })),
     })),
@@ -150,8 +156,8 @@ export function buildRallyMarkdown(data: RallyExport): string {
 }
 
 /** 생성형 AI에 붙여 넣어 요약·군집화하기 좋은 정리(.md). 닉네임도 빼고 내용만 남긴다. */
-export function buildAiMarkdown(room: Room, nodes: RallyNode[], polls: Record<string, PollResults>): string {
-  const data = buildRallyExport(room, nodes, polls, false)
+export function buildAiMarkdown(room: Room, nodes: RallyNode[], polls: Record<string, PollResults>, reactions: Record<string, ReactionCounts> = {}): string {
+  const data = buildRallyExport(room, nodes, polls, false, reactions)
   const out: string[] = [
     `# 강의 랠리 정리 — ${room.title}`,
     '',
@@ -184,10 +190,16 @@ export function buildAiMarkdown(room: Room, nodes: RallyNode[], polls: Record<st
   return out.join('\n')
 }
 
-export async function downloadRallyZip(room: Room, nodes: RallyNode[], polls: Record<string, PollResults>, onProgress?: (done: number, total: number) => void) {
+export async function downloadRallyZip(
+  room: Room,
+  nodes: RallyNode[],
+  polls: Record<string, PollResults>,
+  onProgress?: (done: number, total: number) => void,
+  reactions: Record<string, ReactionCounts> = {},
+) {
   const { default: JSZip } = await import('jszip')
   const zip = new JSZip()
-  const data = buildRallyExport(room, nodes, polls, true)
+  const data = buildRallyExport(room, nodes, polls, true, reactions)
   const idx: RallyIndex = indexRally(nodes)
   const files: { path: string; url: string }[] = []
   for (const n of idx.byId.values()) {

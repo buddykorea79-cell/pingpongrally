@@ -1,6 +1,7 @@
 # 무료 Supabase 프로젝트는 1주일 동안 활동이 없으면 일시정지된다(설계서 13장).
 # 3일마다 가벼운 RPC 를 한 번 호출해 깨워 둔다.
 # 저장소 Settings → Secrets and variables → Actions 에 SUPABASE_URL, SUPABASE_ANON_KEY 를 넣는다.
+# SUPABASE_ANON_KEY 에는 publishable 키(sb_publishable_…)나 예전 anon 키 어느 쪽을 넣어도 된다.
 name: Supabase keepalive
 
 on:
@@ -20,7 +21,7 @@ jobs:
         run: |
           set -euo pipefail
           status=$(curl -s -o /tmp/out.txt -w '%{http_code}' -X POST "$SUPABASE_URL/rest/v1/rpc/keepalive" \
-            -H "apikey: $SUPABASE_ANON_KEY" -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            -H "apikey: $SUPABASE_ANON_KEY" \
             -H 'Content-Type: application/json' -d '{}')
           echo "HTTP $status: $(cat /tmp/out.txt)"
           test "$status" = "200"
