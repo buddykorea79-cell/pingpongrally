@@ -155,12 +155,12 @@ export function LogoMark({ className, mono }: { className?: string; mono?: boole
   )
 }
 
-export function Logo({ className, compact, size = 'md' }: { className?: string; compact?: boolean; size?: 'sm' | 'md' | 'lg' }) {
+export function Logo({ className, compact, size = 'md' }: { className?: string; compact?: boolean; size?: 'sm' | 'md' | 'lg' | 'xl' }) {
   return (
-    <span className={cn('inline-flex items-center gap-2 text-fg', className)}>
-      <LogoMark className={cn(size === 'sm' && 'size-6', size === 'md' && 'size-7', size === 'lg' && 'size-9')} />
+    <span className={cn('inline-flex items-center text-fg', size === 'xl' ? 'gap-3' : 'gap-2', className)}>
+      <LogoMark className={cn(size === 'sm' && 'size-6', size === 'md' && 'size-7', size === 'lg' && 'size-9', size === 'xl' && 'size-10 sm:size-12')} />
       {!compact && (
-        <span className={cn('font-normal tracking-[-0.02em]', size === 'sm' && 'text-[15px]', size === 'md' && 'text-[16px]', size === 'lg' && 'text-[22px]')}>
+        <span className={cn('font-normal tracking-[-0.02em]', size === 'sm' && 'text-[15px]', size === 'md' && 'text-[16px]', size === 'lg' && 'text-[22px]', size === 'xl' && 'text-[26px] sm:text-[32px]')}>
           PingPong<span className="font-light text-fg-3">Rally</span>
         </span>
       )}

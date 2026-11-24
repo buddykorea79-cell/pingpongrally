@@ -12,6 +12,7 @@ const Rally = lazy(() => import('@/pages/rally/Rally'))
 const SurveyRespond = lazy(() => import('@/pages/rally/SurveyRespond'))
 const Me = lazy(() => import('@/pages/rally/Me'))
 const Privacy = lazy(() => import('@/pages/Privacy'))
+const Terms = lazy(() => import('@/pages/Terms'))
 const NotFound = lazy(() => import('@/pages/NotFound'))
 const HostLogin = lazy(() => import('@/pages/host/Login'))
 const Dashboard = lazy(() => import('@/pages/host/Dashboard'))
@@ -48,6 +49,7 @@ export default function App() {
               <Route path="/r/:roomId/survey/:surveyId" element={<SurveyRespond />} />
               <Route path="/r/:roomId/me" element={<Me />} />
               <Route path="/privacy" element={<Privacy />} />
+              <Route path="/terms" element={<Terms />} />
               <Route path="/host/login" element={<HostLogin />} />
               <Route path="/host" element={<RequireHost><Dashboard /></RequireHost>} />
               <Route path="/host/rooms/:id" element={<RequireHost><Control /></RequireHost>} />

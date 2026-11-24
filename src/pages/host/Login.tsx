@@ -82,6 +82,18 @@ export default function HostLogin() {
             </p>
           )}
 
+          <p className="mt-4 text-[12.5px] leading-relaxed text-fg-3">
+            계속하면{' '}
+            <Link to="/terms" className="text-fg-2 underline decoration-line-strong underline-offset-4 hover:text-fg">
+              이용약관
+            </Link>
+            과{' '}
+            <Link to="/privacy" className="text-fg-2 underline decoration-line-strong underline-offset-4 hover:text-fg">
+              개인정보 처리방침
+            </Link>
+            에 동의하는 것으로 봐요.
+          </p>
+
           <p className="mt-10 border-t border-line pt-4 text-[12.5px] leading-relaxed text-fg-3">
             강사 1명은 강의를 한 번에 1개만 열 수 있어요. 교육생은 로그인 없이 입장 코드로 들어와요.
           </p>

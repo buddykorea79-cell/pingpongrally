@@ -1,83 +1,202 @@
 import { Link } from 'react-router'
-import { ArrowLeft } from 'lucide-react'
-import { Logo } from '@/components/ui/Display'
 import { STORAGE_LOCATION } from '@/components/rally/Consent'
-import { useDocumentTitle } from '@/lib/hooks'
+import { LegalPage, LegalTable, OperatorContact, type LegalSection } from '@/components/legal/LegalPage'
+import { OPERATOR_NAME, SERVICE_NAME } from '@/lib/legal'
 
-const SECTIONS: { title: string; body: React.ReactNode }[] = [
+const SECTIONS: LegalSection[] = [
   {
-    title: '수집하는 항목',
+    id: 'items',
+    title: '처리하는 개인정보 항목',
+    body: (
+      <>
+        <LegalTable
+          head={['구분', '항목', '수집 방법']}
+          rows={[
+            ['교육생(참여자)', '자동으로 만들어지는 익명 계정 식별값, 닉네임, 작성한 핑·퐁·리플과 첨부파일·링크, 이모지 반응, 퀵폴 투표, 설문 응답, 입장 시각', '입장 코드·QR로 입장할 때와 서비스를 이용하는 동안'],
+            ['참석자 등록(강사가 받는 경우에만)', '필수: 소속 기관, 부서, 성명 / 선택: 휴대폰 번호(강사가 켠 경우, 선택 동의한 사람만)', '강사가 보낸 등록 링크에서 본인이 직접 입력'],
+            ['강사', 'Google 계정의 이메일 주소·이름·프로필 사진 주소, 계정 식별값, 만든 강의·핑·템플릿·설문지', 'Google 로그인 때 Google로부터 받음, 서비스 이용 중 직접 입력'],
+            ['자동으로 생기는 정보', '접속 IP 주소, 브라우저 정보, 접속 기록, 입장 코드 오입력 기록(계정 식별값·시각)', '서비스 이용 과정에서 자동 생성'],
+          ]}
+        />
+        <p>비밀번호는 받지 않습니다. 교육생은 로그인 없이 입장하고, 강사는 Google 로그인을 씁니다.</p>
+      </>
+    ),
+  },
+  {
+    id: 'purpose',
+    title: '처리 목적',
     body: (
       <ul className="list-disc space-y-1 pl-5">
-        <li>모든 참여자: 닉네임, 작성한 글·첨부파일, 퀵폴 투표, 설문 응답</li>
-        <li>참석자 등록(강사가 보낸 등록 링크에서 직접 입력): 소속 기관, 부서, 성명(필수 동의), 휴대폰 번호(선택 동의, 강사가 켠 경우만)</li>
-        <li>로그인 정보: 교육생은 화면 없이 만들어지는 익명 계정, 강사는 Google 계정으로 만든 계정(이메일 주소)</li>
+        <li>강의 중 질문(핑)·답변(퐁)·리플·퀵폴·설문 진행과 발표 화면 표시</li>
+        <li>강사 본인 확인, 강사 1명당 열린 강의 1개 같은 이용 규칙 적용, 자동화된 부정 이용 방지</li>
+        <li>참석자 등록을 받는 강의의 출석 확인, 강사가 정한 교육 관련 연락(휴대폰 번호를 받은 경우), 실명 연결 설문의 교육 효과 분석</li>
+        <li>서비스 장애 대응과 보안 사고 예방</li>
       </ul>
     ),
   },
   {
-    title: '이용 목적',
-    body: '강의 중 질문·답변 진행, 교육 참석 확인과 출석 관리, 강사가 정한 교육 관련 연락(휴대폰 번호를 받은 경우), 교육 효과 분석(실명 연결 설문을 쓴 경우).',
+    id: 'roles',
+    title: '처리자와 운영자의 역할',
+    body: (
+      <>
+        <p>
+          참석자 등록 정보와 실명 연결 설문 응답은 <span className="text-fg">각 강의의 강사(또는 주관 기관)</span>가 개인정보처리자로서 받습니다. 처리자 이름과 문의처는 등록 화면의 동의 문안에 강의마다 표시됩니다. 서비스 운영자({OPERATOR_NAME})는 그 처리를 위한 시스템을 제공하고 관리합니다.
+        </p>
+        <p>강사 계정, 익명 계정, 자동으로 생기는 정보는 서비스 운영자가 처리합니다.</p>
+      </>
+    ),
   },
   {
+    id: 'retention',
     title: '보유 기간과 파기',
     body: (
+      <>
+        <LegalTable
+          head={['정보', '보유 기간']}
+          rows={[
+            ['핑·퐁·리플·첨부파일·이모지 반응·퀵폴 투표, 참여자 닉네임', '강의 시작 72시간 뒤 자동 삭제'],
+            ['참석자 등록 정보, 사전 명단, 설문 응답, 강의 기록', '강의 종료 7일 뒤 자동 파기(강사가 [지금 파기]로 앞당길 수 있음). 강의를 시작하지 않은 채 남으면 등록 폼을 연 지 30일 뒤 파기'],
+            ['교육생 익명 계정', '마지막 이용 뒤 10일이 지나고 남은 강의가 없으면 삭제'],
+            ['입장 코드 오입력 기록', '1일'],
+            ['강사 계정, 핑 템플릿, 설문 템플릿', '강사가 삭제를 요청할 때까지(템플릿은 강사가 직접 삭제 가능)'],
+            ['접속 기록(IP 등)', '아래 처리 위탁 업체의 보관 정책에 따름'],
+          ]}
+        />
+        <p>
+          파기는 자동 예약 작업이 데이터베이스 행과 저장 파일을 지우는 방식으로 하며, 지운 정보는 되살릴 수 없습니다. 교육생은 [내 정보]에서 자기 등록 정보를 바로 삭제할 수 있고, 자기 글을 지울 수 있습니다.
+        </p>
+      </>
+    ),
+  },
+  {
+    id: 'third',
+    title: '제3자 제공',
+    body: (
+      <p>
+        개인정보를 외부에 팔거나 제공하지 않습니다. 참석자 등록 정보는 그 강의의 강사(처리자)만 볼 수 있습니다. 법령에 따라 수사기관 등이 정당한 절차로 요청하는 경우에만 예외로 제공할 수 있습니다.
+      </p>
+    ),
+  },
+  {
+    id: 'outsourcing',
+    title: '처리 위탁과 국외 이전',
+    body: (
+      <>
+        <p>서비스 운영을 위해 아래 업체에 처리를 맡깁니다. 업체의 서버나 지원 인력이 국외에 있어 정보가 국외로 이전될 수 있습니다.</p>
+        <LegalTable
+          head={['받는 곳(국가)', '이전 항목', '목적', '이전 시기·방법']}
+          rows={[
+            [
+              'Supabase, Inc.(미국)',
+              '서비스에 저장되는 모든 정보',
+              `데이터베이스·로그인·파일 저장. 데이터는 ${STORAGE_LOCATION}에 저장`,
+              '서비스 이용 시 네트워크로 수시 전송',
+            ],
+            ['Cloudflare, Inc.(미국)', '접속 IP 주소, 브라우저 정보', '웹사이트 전송, 자동 입력 방지(Turnstile)', '접속 시 네트워크로 수시 전송'],
+            ['Google LLC(미국)', '(강사) Google 로그인 정보', '강사 로그인', '로그인 시'],
+          ]}
+        />
+        <p>
+          보유 기간은 위 &lsquo;보유 기간과 파기&rsquo;를 따르며, 업체가 남기는 접속 기록은 각 업체의 정책을 따릅니다. 국외 이전을 원하지 않으면 서비스를 이용하지 않을 수 있지만, 이 경우 서비스를 이용할 수 없습니다.
+        </p>
+      </>
+    ),
+  },
+  {
+    id: 'rights',
+    title: '정보주체의 권리와 행사 방법',
+    body: (
+      <>
+        <p>누구나 자기 개인정보의 열람, 정정, 삭제, 처리 정지, 동의 철회를 요청할 수 있습니다.</p>
+        <ul className="list-disc space-y-1 pl-5">
+          <li>교육생: 랠리 화면의 [내 정보]나 등록 링크에서 등록 정보를 보고 고치거나 삭제(동의 철회)할 수 있습니다. 작성한 글은 직접 삭제할 수 있습니다.</li>
+          <li>참석자 등록 정보에 관한 그 밖의 요청: 등록 화면에 적힌 강의별 처리자·문의처로 연락해 주세요.</li>
+          <li>강사 계정 삭제 등: 아래 개인정보 보호책임자에게 요청해 주세요. 확인 뒤 10일 안에 처리 결과를 알려 드립니다.</li>
+        </ul>
+        <p>참석자 등록 동의를 거부할 수 있습니다. 거부해도 강의 참여(닉네임으로 글쓰기)에는 제한이 없고, 출석 확인만 되지 않습니다.</p>
+      </>
+    ),
+  },
+  {
+    id: 'children',
+    title: '만 14세 미만 아동',
+    body: <p>서비스는 성인 교육용입니다. 만 14세 미만 아동의 참석자 등록 정보를 받지 않으며, 받은 사실을 알게 되면 바로 파기합니다.</p>,
+  },
+  {
+    id: 'security',
+    title: '안전성 확보 조치',
+    body: (
       <ul className="list-disc space-y-1 pl-5">
-        <li>강의는 시작 후 24시간 동안 열립니다(강사가 연장하거나 일찍 종료할 수 있음).</li>
-        <li>글·첨부파일·투표: 강의 시작 72시간 뒤 자동 삭제</li>
-        <li>참석자 등록 정보·사전 명단·설문 응답: 교육 종료 7일 뒤 자동 파기(강의를 시작하지 않으면 등록 폼을 연 지 30일 뒤)</li>
-        <li>교육생이 [내 정보]에서 삭제하면 즉시 지웁니다. 강사는 [지금 파기]로 앞당길 수 있습니다.</li>
+        <li>모든 통신을 HTTPS로 암호화합니다.</li>
+        <li>데이터베이스 행 단위 접근 통제(RLS)로, 등록 정보는 본인과 그 강의의 강사만 볼 수 있습니다.</li>
+        <li>비밀번호를 보관하지 않고, 관리자 권한 키는 서버에서만 씁니다.</li>
+        <li>휴대폰 번호는 강사 화면과 출석부 엑셀에서도 기본으로 가려 둡니다.</li>
+        <li>입장 코드를 반복해 틀리면 잠시 입장을 막고, 정해진 기간이 지나면 자동으로 파기합니다.</li>
       </ul>
     ),
   },
   {
-    title: '보관 위치와 열람',
-    body: `${STORAGE_LOCATION} 서버에 저장되며, 등록 정보는 본인과 그 강의의 강사만 열람할 수 있습니다. 랠리 화면에는 닉네임만 표시됩니다.`,
+    id: 'cookies',
+    title: '자동 수집 장치(쿠키 등)',
+    body: (
+      <p>
+        광고·분석용 쿠키나 추적 도구를 쓰지 않습니다. 로그인 유지, 화면 테마, 작성 중인 글 보관을 위해 브라우저 저장소(localStorage·sessionStorage)를 씁니다. 브라우저 설정에서 지울 수 있지만, 지우면 로그인과 입장 상태가 풀립니다. 자동 입력 방지(Cloudflare Turnstile)가 봇 확인에 필요한 정보를 처리할 수 있습니다.
+      </p>
+    ),
   },
   {
-    title: '거부할 권리',
-    body: '개인정보 수집·이용 동의를 거부할 수 있습니다. 동의하지 않으면 등록되지 않아 출석이 확인되지 않지만, 강의 참여(닉네임으로 글쓰기)에는 제한이 없습니다. 등록 링크나 [내 정보]에서 언제든 등록을 삭제(동의 철회)할 수 있습니다.',
+    id: 'officer',
+    title: '개인정보 보호책임자',
+    body: (
+      <>
+        <LegalTable
+          head={['구분', '내용']}
+          rows={[
+            ['보호책임자', OPERATOR_NAME],
+            ['연락처', <OperatorContact key="c" />],
+          ]}
+        />
+        <p>참석자 등록 정보는 강의별 처리자(등록 화면의 동의 문안에 표시)에게 먼저 문의해 주세요.</p>
+      </>
+    ),
   },
   {
-    title: '이용자 주의 사항',
-    body: '글과 파일에는 개인정보(실명·연락처 등)나 기관 내부 자료를 올리지 마세요. 강사는 부적절한 글을 숨길 수 있습니다.',
+    id: 'remedy',
+    title: '권익 침해 구제 방법',
+    body: (
+      <>
+        <p>개인정보 침해에 대한 상담이나 신고는 아래 기관에 할 수 있습니다.</p>
+        <ul className="list-disc space-y-1 pl-5">
+          <li>개인정보분쟁조정위원회: 1833-6972 (www.kopico.go.kr)</li>
+          <li>개인정보침해신고센터: 국번 없이 118 (privacy.kisa.or.kr)</li>
+          <li>대검찰청: 국번 없이 1301 (www.spo.go.kr)</li>
+          <li>경찰청: 국번 없이 182 (ecrm.police.go.kr)</li>
+        </ul>
+      </>
+    ),
   },
   {
-    title: '문의',
-    body: '각 강의의 동의 문안에 적힌 개인정보처리자와 문의처로 연락해 주세요.',
+    id: 'changes',
+    title: '방침의 변경',
+    body: <p>이 방침을 바꿀 때는 시행 7일 전부터 이 화면에 알립니다. 이용자 권리에 중요한 변경은 30일 전부터 알립니다.</p>,
   },
 ]
 
 export default function Privacy() {
-  useDocumentTitle('개인정보 처리 안내')
   return (
-    <div className="min-h-dvh bg-bg">
-      <div className="mx-auto max-w-2xl px-5 py-8">
-        <div className="flex items-center justify-between">
-          <Link to="/" className="inline-flex items-center gap-1.5 text-sm font-semibold text-fg-2 hover:text-fg">
-            <ArrowLeft className="size-4" /> 처음으로
+    <LegalPage
+      title="개인정보 처리방침"
+      intro={
+        <p>
+          {SERVICE_NAME}(이하 &lsquo;서비스&rsquo;)는 강의용 질문·답변 웹앱입니다. 서비스는 필요한 최소한의 정보만 처리하고, 정해진 기간이 지나면 자동으로 지웁니다. 이 방침은 「개인정보 보호법」 제30조에 따라 어떤 정보를 왜, 얼마나 처리하는지 알려 드립니다. 서비스 이용 규칙은{' '}
+          <Link to="/terms" className="text-fg underline decoration-line-strong underline-offset-4 hover:decoration-fg">
+            이용약관
           </Link>
-          <Logo size="sm" />
-        </div>
-        <h1 className="mt-10 text-[30px] font-extrabold tracking-tight">개인정보 처리 안내</h1>
-        <p className="mt-3 text-[15px] leading-relaxed text-fg-2">
-          PingPongRally는 필요한 최소한의 정보만 받고, 정해진 기간이 지나면 자동으로 지웁니다.
+          을 확인해 주세요.
         </p>
-        <div className="mt-8 space-y-3">
-          {SECTIONS.map((s, i) => (
-            <section key={s.title} className="rounded-3xl bg-surface p-6 ring-1 ring-line">
-              <h2 className="flex items-center gap-2.5 text-[16px] font-bold">
-                <span className="flex size-6 items-center justify-center rounded-lg bg-surface-3 font-mono text-xs text-fg-2">{i + 1}</span>
-                {s.title}
-              </h2>
-              <div className="mt-3 text-[14.5px] leading-relaxed text-fg-2">{s.body}</div>
-            </section>
-          ))}
-        </div>
-        <p className="mt-8 text-[13px] leading-relaxed text-fg-3">
-          이 안내는 서비스 운영 방식에 대한 설명이며, 공식 교육에서 쓰기 전 주관 기관 개인정보 담당 부서의 검토를 받아야 합니다.
-        </p>
-      </div>
-    </div>
+      }
+      sections={SECTIONS}
+      other={{ to: '/terms', label: '이용약관' }}
+    />
   )
 }
