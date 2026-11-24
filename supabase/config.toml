@@ -1,0 +1,5 @@
+# Supabase CLI 용 최소 설정 (supabase link 후 db push / functions deploy 에 쓰인다)
+project_id = "pingpongrally"
+
+[functions.purge]
+verify_jwt = false

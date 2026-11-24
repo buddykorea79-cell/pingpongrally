@@ -1,0 +1,26 @@
+# 무료 Supabase 프로젝트는 1주일 동안 활동이 없으면 일시정지된다(설계서 13장).
+# 3일마다 가벼운 RPC 를 한 번 호출해 깨워 둔다.
+# 저장소 Settings → Secrets and variables → Actions 에 SUPABASE_URL, SUPABASE_ANON_KEY 를 넣는다.
+name: Supabase keepalive
+
+on:
+  schedule:
+    - cron: '17 0 */3 * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Call keepalive RPC
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          set -euo pipefail
+          status=$(curl -s -o /tmp/out.txt -w '%{http_code}' -X POST "$SUPABASE_URL/rest/v1/rpc/keepalive" \
+            -H "apikey: $SUPABASE_ANON_KEY" -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            -H 'Content-Type: application/json' -d '{}')
+          echo "HTTP $status: $(cat /tmp/out.txt)"
+          test "$status" = "200"

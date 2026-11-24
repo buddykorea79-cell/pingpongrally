@@ -1,0 +1,14 @@
+node_modules
+dist
+.env
+.env.local
+.env.*.local
+*.log
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+supabase/.temp
+supabase/.branches
+
+# Claude Code 개인 설정
+.claude/settings.local.json
